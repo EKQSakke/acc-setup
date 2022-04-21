@@ -1,11 +1,17 @@
 package main
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/skratchdot/open-golang/open"
 )
 
 func check(err error) {
@@ -16,47 +22,75 @@ func check(err error) {
 
 func main() {
 	cars := getCars()
+	a := app.New()
+	w := a.NewWindow("ACC Setup Manager")
+	w.Resize(fyne.NewSize(400, 400))
 
-	app := tview.NewApplication()
-	list := tview.NewList()
-	for _, car := range cars {
-		list.AddItem(car, "", 'a', func() {
-			list.Clear()
-			tracks := getTracks(car)
-			for _, track := range tracks {
-				list.AddItem(track, "", 'a', func() {
-					list.Clear()
-					setups := getSetups(car, track)
-					for _, setup := range setups {
-						list.AddItem(setup, "", 'a', func() {
-							showSetup(car, track, setup, app)
-						})
-					}
-					list.AddItem("Quit", "", 'q', func() {
-						app.Stop()
-					})
+	listTitle := widget.NewLabel("")
+	listContainer := container.NewVBox()
 
-				})
-			}
-			list.AddItem("Quit", "", 'q', func() {
-				app.Stop()
-			})
+	carSelectionView(cars, listContainer, listTitle)
 
+	w.SetContent(container.NewVBox(
+		listTitle,
+		listContainer,
+	))
+
+	w.ShowAndRun()
+}
+
+func carSelectionView(cars []string, listContainer *fyne.Container, listTitle *widget.Label) {
+	listTitle.SetText("Select a car")
+	list := make([]fyne.CanvasObject, len(cars))
+	for i, car := range cars {
+		myCar := car
+		list[i] = widget.NewButton(car, func() {
+			trackSelectionView(myCar, getTracks(myCar), listContainer, listTitle)
 		})
-	}
-	list.AddItem("Quit", "", 'q', func() {
-		app.Stop()
-	})
-
-	if err := app.SetRoot(list, true).SetFocus(list).Run(); err != nil {
-		panic(err)
+		listContainer.Add(list[i])
 	}
 }
 
-func getCars() []string {
+func trackSelectionView(car string, tracks []string, listContainer *fyne.Container, listTitle *widget.Label) {
+	listTitle.SetText("Select a track")
+	listContainer.Objects = nil
+	list := make([]fyne.CanvasObject, len(tracks))
+	for i, track := range tracks {
+		myTrack := track
+		list[i] = widget.NewButton(track, func() {
+			setupSelectionView(car, myTrack, getSetups(car, myTrack), listContainer, listTitle)
+		})
+		listContainer.Add(list[i])
+	}
+}
+
+func setupSelectionView(car, track string, setups []string, listContainer *fyne.Container, listTitle *widget.Label) {
+	listTitle.SetText("Select a setup") 
+	listContainer.Objects = nil
+	list := make([]fyne.CanvasObject, len(setups))
+	for i, setup := range setups {
+		mySetup := setup
+		list[i] = container.NewHBox(
+			widget.NewLabel(mySetup),
+			widget.NewButton("Open", func() {
+				showSetup(car, track, mySetup)
+			}),
+			widget.NewButton("Copy", func() {
+				copySetupToAllTracks(car, track, mySetup)
+			}),
+		)
+		listContainer.Add(list[i])
+	}
+}
+
+func setupsPath() string {
 	home, err := os.UserHomeDir()
 	check(err)
-	files, err := ioutil.ReadDir(home + "\\Documents\\Assetto Corsa Competizione\\Setups")
+	return home + "\\Documents\\Assetto Corsa Competizione\\Setups\\"
+}
+
+func getCars() []string {
+	files, err := ioutil.ReadDir(setupsPath())
 	check(err)
 
 	cars := make([]string, len(files))
@@ -68,9 +102,7 @@ func getCars() []string {
 }
 
 func getTracks(car string) []string {
-	home, err := os.UserHomeDir()
-	check(err)
-	files, err := ioutil.ReadDir(home + "\\Documents\\Assetto Corsa Competizione\\Setups\\" + car)
+	files, err := ioutil.ReadDir(setupsPath() + car)
 	check(err)
 
 	tracks := make([]string, len(files))
@@ -81,10 +113,8 @@ func getTracks(car string) []string {
 	return tracks
 }
 
-func getSetups(car string, track string) []string {
-	home, err := os.UserHomeDir()
-	check(err)
-	files, err := ioutil.ReadDir(home + "\\Documents\\Assetto Corsa Competizione\\Setups\\" + car + "\\" + track)
+func getSetups(car, track string) []string {
+	files, err := ioutil.ReadDir(setupsPath() + car + "\\" + track)
 	check(err)
 
 	setups := make([]string, len(files))
@@ -95,42 +125,43 @@ func getSetups(car string, track string) []string {
 	return setups
 }
 
-func showSetup(car string, track string, setup string, app *tview.Application) {
-	home, err := os.UserHomeDir()
+func showSetup(car, track, setup string) {
+	// This doesn't work while debugging - it seems to be a bug in the package
+	open.Start(setupsPath() + car + "\\" + track + "\\" + setup)
+}
+
+func copySetupToAllTracks(car, sourceTrack, setup string) {
+	f, err := os.ReadFile("tracklist.txt")
 	check(err)
-	setupFile, err := os.Open(home + "\\Documents\\Assetto Corsa Competizione\\Setups\\" + car + "\\" + track + "\\" + setup)
-	check(err)
-	defer setupFile.Close()
-
-	setupBytes, err := ioutil.ReadAll(setupFile)
-	check(err)
-
-	textView := tview.NewTextView()
-	textView.SetText(string(setupBytes))
-
-	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape {
-			textView.SetText("")
-			list := tview.NewList()
-
-			setups := getSetups(car, track)
-			for _, setup := range setups {
-				list.AddItem(setup, "", 'a', func() {
-					showSetup(car, track, setup, app)
-				})
+	trackString := string(f)
+	for _, destinationTrack := range strings.Split(trackString, "\r\n") {
+		if destinationTrack != "" && sourceTrack != destinationTrack {
+			if !Contains(getTracks(car), destinationTrack) {
+				os.Mkdir(setupsPath()+car+"\\"+destinationTrack, 0755)
 			}
-			list.AddItem("Quit", "", 'q', func() {
-				app.Stop()
-			})
-
-			if err := app.SetRoot(list, true).SetFocus(list).Run(); err != nil {
-				panic(err)
-			}
+			copySetup(car, sourceTrack, destinationTrack, setup)
 		}
-		return event
-	})
-
-	if err := app.SetRoot(textView, true).SetFocus(textView).Run(); err != nil {
-		panic(err)
 	}
+}
+
+func copySetup(car, sourceTrack, destinationTrack, setup string) {
+	source, err := os.Open(setupsPath() + car + "\\" + sourceTrack + "\\" + setup)
+	check(err)
+	defer source.Close()
+
+	destination, err := os.Create(setupsPath() + car + "\\" + destinationTrack + "\\" + setup)
+	check(err)
+	defer destination.Close()
+
+	_, err = io.Copy(destination, source)
+	check(err)
+}
+
+func Contains[T comparable](s []T, e T) bool {
+	for _, v := range s {
+		if v == e {
+			return true
+		}
+	}
+	return false
 }

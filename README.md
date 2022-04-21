@@ -16,18 +16,16 @@ Currently supported cars are found in the carlist.txt
 
 # Progress
 
-- ✅Create CLI app
+- ✅Create Fyne app
     - ✅Select car from list
     - ✅Select track from list
-    -> Share to all tracks
+    - ✅Select setup from list (open to text editor)
+    - ✅-> Share to all tracks
 
-- Show keys in banner
-
-- Optional overwriting if setup with that name exists in track
+- Usability (back, rename, title, feedback)
 
 - Create a share url from setup
     - Check that is valid json structure
+    - Pastebin api? - or self hosted -> would be able to sync, but I don't see that as a big use case with ACC.
 
 - Add setup from share url
-
-- GUI

@@ -17,10 +17,11 @@ Currently supported cars are found in the carlist.txt
 # Progress
 
 - ✅Create CLI app
-    - Get windows username
-    - Select car from list
-    - Select track from list
+    - ✅Select car from list
+    - ✅Select track from list
     -> Share to all tracks
+
+- Show keys in banner
 
 - Optional overwriting if setup with that name exists in track
 

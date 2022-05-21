@@ -17,7 +17,7 @@ func main() {
 	cars := getCars()
 	a := app.New()
 	w := a.NewWindow("ACC Setup Manager")
-	w.Resize(fyne.NewSize(400, 400))
+	w.Resize(fyne.NewSize(500, 20))
 
 	listContainer := container.NewVBox()
 	topContainer := container.NewHBox()
